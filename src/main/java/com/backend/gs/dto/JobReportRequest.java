@@ -25,6 +25,8 @@ public class JobReportRequest {
     )
     private String description;
 
+    private String callbackUrl;
+
     public String getCompany() {
         return company;
     }
@@ -47,5 +49,13 @@ public class JobReportRequest {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public String getCallbackUrl() {
+        return callbackUrl;
+    }
+
+    public void setCallbackUrl(String callbackUrl) {
+        this.callbackUrl = callbackUrl;
     }
 }

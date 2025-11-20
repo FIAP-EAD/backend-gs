@@ -6,6 +6,7 @@ public class JobReport {
     private String company;
     private String title;
     private String description;
+    private String sessionId;
 
     public long getIdJobReport() {
         return idJobReport;
@@ -37,5 +38,13 @@ public class JobReport {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public String getSessionId() {
+        return sessionId;
+    }
+
+    public void setSessionId(String sessionId) {
+        this.sessionId = sessionId;
     }
 }

@@ -23,6 +23,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private JwtService jwtService;
 
     @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        boolean shouldSkip = path.startsWith("/api/auth/") || path.startsWith("/api/jobReport/callback/");
+        if (shouldSkip) {
+            logger.debug("Skipping JWT filter for path: " + path);
+        }
+        return shouldSkip;
+    }
+
+    @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
 

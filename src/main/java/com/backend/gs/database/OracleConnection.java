@@ -1,22 +1,31 @@
 package com.backend.gs.database;
 
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 
+@Component
 public class OracleConnection {
 
-    private static final String URL = "jdbc:oracle:thin:@oracle.fiap.com.br:1521:ORCL";
-    private static final String USERNAME = "RM554589";
-    private static final String PASSWORD = "020106";
+    @Value("${oracle.url}")
+    private String url;
 
-    private static Connection connection = null;
+    @Value("${oracle.username}")
+    private String username;
 
-    public static Connection getConnection() {
+    @Value("${oracle.password}")
+    private String password;
+
+    private Connection connection = null;
+
+    public Connection getConnection() {
         try {
             if (connection == null || connection.isClosed()) {
                 Class.forName("oracle.jdbc.driver.OracleDriver");
-                connection = DriverManager.getConnection(URL, USERNAME, PASSWORD);
+                connection = DriverManager.getConnection(url, username, password);
                 System.out.println("Oracle connection established successfully!");
             }
         } catch (ClassNotFoundException e) {
@@ -27,7 +36,7 @@ public class OracleConnection {
         return connection;
     }
 
-    public static void closeConnection() {
+    public void closeConnection() {
         try {
             if (connection != null && !connection.isClosed()) {
                 connection.close();
@@ -38,7 +47,7 @@ public class OracleConnection {
         }
     }
 
-    public static boolean testConnection() {
+    public boolean testConnection() {
         try {
             Connection conn = getConnection();
             return conn != null && !conn.isClosed();
