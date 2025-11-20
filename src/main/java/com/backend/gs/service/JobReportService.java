@@ -1,49 +1,59 @@
 package com.backend.gs.service;
 
+import com.backend.gs.dao.JobReportDAO;
+import com.backend.gs.model.JobReport;
 import com.backend.gs.dto.JobReportRequest;
 import com.backend.gs.dto.JobReportResponse;
-import com.backend.gs.model.JobReport;
-import com.backend.gs.repository.JobReportRepository;
 import com.backend.gs.utils.JobInfoUtil;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
+
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 
 @Service
 public class JobReportService {
 
-    private final JobReportRepository repository;
-    private final RestTemplate restTemplate;
+    private final JobReportDAO jobReportDAO;
+    private final JobInfoUtil jobInfoUtil;
 
-    public JobReportService(JobReportRepository repository) {
-        this.repository = repository;
-        this.restTemplate = new RestTemplate();
+    private static final String LAMBDA_URL =
+            "https://lv6bwqn7dfkqulrqquhlz3fhdy0zuzbx.lambda-url.us-east-1.on.aws/";
+
+    public JobReportService() {
+        this.jobReportDAO = new JobReportDAO();
+        this.jobInfoUtil = new JobInfoUtil();
     }
 
-    public JobReportResponse create(JobReportRequest request) {
-
-
+    public JobReportResponse createJobReport(JobReportRequest request) throws Exception {
         JobReport jobReport = new JobReport();
         jobReport.setCompany(request.getCompany());
         jobReport.setTitle(request.getTitle());
         jobReport.setDescription(request.getDescription());
 
-        JobReport saved = repository.save(jobReport);
+        jobReportDAO.save(jobReport);
 
-        sendToLambda(saved);
+        String jobInfo = jobInfoUtil.buildJobInfo(jobReport);
 
-        String jobInfo = JobInfoUtil.buildJobInfo(saved);
+        sendToLambda(jobInfo);
 
         return new JobReportResponse(jobInfo);
     }
 
-    private void sendToLambda(JobReport report) {
-        try {
-            String lambdaUrl =
-                    "https://lv6bwqn7dfkqulrqquhlz3fhdy0zuzbx.lambda-url.us-east-1.on.aws/";
+    private void sendToLambda(String jobInfo) throws Exception {
+        HttpClient client = HttpClient.newHttpClient();
 
-            restTemplate.postForObject(lambdaUrl, report, Void.class);
+        String jsonBody = String.format("{\"job_info\": \"%s\"}",
+                jobInfo.replace("\"", "\\\"").replace("\n", "\\n")
+        );
 
-        } catch (Exception ignored) {
-        }
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(LAMBDA_URL))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+                .build();
+
+        client.send(request, HttpResponse.BodyHandlers.ofString());
     }
 }
