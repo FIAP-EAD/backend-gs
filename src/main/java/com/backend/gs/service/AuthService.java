@@ -24,26 +24,21 @@ public class AuthService {
     private JwtService jwtService;
 
     public AuthResponse register(RegisterRequest request) {
-        // Verificar se o username já existe
         if (userRepository.existsByUsername(request.getUsername())) {
             return new AuthResponse("Username já está em uso", false);
         }
 
-        // Verificar se o email já existe
         if (userRepository.existsByEmail(request.getEmail())) {
             return new AuthResponse("Email já está em uso", false);
         }
 
-        // Criar novo usuário
         User user = new User();
         user.setUsername(request.getUsername());
         user.setEmail(request.getEmail());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
 
-        // Salvar no banco de dados
         User savedUser = userRepository.save(user);
 
-        // Gerar token JWT
         String token = jwtService.generateToken(savedUser.getUsername(), savedUser.getId());
 
         return new AuthResponse(
@@ -56,7 +51,6 @@ public class AuthService {
     }
 
     public AuthResponse login(LoginRequest request) {
-        // Buscar usuário pelo username
         Optional<User> userOptional = userRepository.findByUsername(request.getUsername());
 
         if (userOptional.isEmpty()) {
@@ -65,12 +59,10 @@ public class AuthService {
 
         User user = userOptional.get();
 
-        // Verificar senha
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             return new AuthResponse("Username ou senha inválidos", false);
         }
 
-        // Gerar token JWT
         String token = jwtService.generateToken(user.getUsername(), user.getId());
 
         return new AuthResponse(
@@ -82,4 +74,3 @@ public class AuthService {
         );
     }
 }
-

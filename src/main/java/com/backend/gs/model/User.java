@@ -13,22 +13,21 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @NotBlank(message = "Username é obrigatório")
-    @Size(min = 3, max = 50, message = "Username deve ter entre 3 e 50 caracteres")
+    @NotBlank(message = "O nome de usuário não pode estar vazio.")
+    @Size(min = 3, max = 50, message = "O nome de usuário deve conter entre 3 e 50 caracteres.")
     @Column(unique = true, nullable = false)
     private String username;
 
-    @NotBlank(message = "Email é obrigatório")
-    @Email(message = "Email deve ser válido")
+    @NotBlank(message = "O email não pode estar vazio.")
+    @Email(message = "Informe um email válido.")
     @Column(unique = true, nullable = false)
     private String email;
 
-    @NotBlank(message = "Senha é obrigatória")
-    @Size(min = 6, message = "Senha deve ter no mínimo 6 caracteres")
+    @NotBlank(message = "A senha não pode estar vazia.")
+    @Size(min = 6, message = "A senha deve ter pelo menos 6 caracteres.")
     @Column(nullable = false)
     private String password;
 
-    // Construtores
     public User() {
     }
 
@@ -38,7 +37,6 @@ public class User {
         this.password = password;
     }
 
-    // Getters e Setters
     public Long getId() {
         return id;
     }
@@ -71,4 +69,3 @@ public class User {
         this.password = password;
     }
 }
-
