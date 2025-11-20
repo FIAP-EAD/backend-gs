@@ -140,4 +140,7 @@ fabric.properties
 hs_err_pid*
 replay_pid*
 
+# Ngrok logs (opcional)
+logs/ngrok.log
+
 # End of https://www.toptal.com/developers/gitignore/api/java,intellij
