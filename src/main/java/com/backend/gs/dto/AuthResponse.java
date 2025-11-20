@@ -8,7 +8,6 @@ public class AuthResponse {
     private String username;
     private String token;
 
-    // Construtores
     public AuthResponse() {
     }
 
@@ -32,7 +31,6 @@ public class AuthResponse {
         this.token = token;
     }
 
-    // Getters e Setters
     public String getMessage() {
         return message;
     }

@@ -4,7 +4,7 @@ import com.backend.gs.model.JobReport;
 
 public class JobInfoUtil {
 
-    private JobInfoUtil(){}
+    public JobInfoUtil(){}
 
     public static String buildJobInfo(JobReport jobReport) {
         return String.format(
