@@ -1,8 +1,8 @@
 package com.backend.gs.controller;
 
+import com.backend.gs.dao.UserDao;
 import com.backend.gs.dto.AuthResponse;
 import com.backend.gs.model.User;
-import com.backend.gs.repository.UserRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -12,23 +12,23 @@ import org.springframework.web.bind.annotation.*;
 @CrossOrigin(origins = "*")
 public class UserController {
 
-    private final UserRepository userRepository;
+    private final UserDao userDao;
 
-    public UserController(UserRepository userRepository) {
-        this.userRepository = userRepository;
+    public UserController(UserDao userDao) {
+        this.userDao = userDao;
     }
 
     @GetMapping("/profile")
     public ResponseEntity<?> getProfile(Authentication authentication) {
         String username = authentication.getName();
 
-        User user = userRepository.findByUsername(username)
-                .orElse(null);
+        var optionalUser = userDao.findByUsername(username);
 
-        if (user == null) {
-            return ResponseEntity.status(404)
-                    .body("Usuário não encontrado.");
+        if (optionalUser.isEmpty()) {
+            return ResponseEntity.status(404).body("Usuário não encontrado.");
         }
+
+        User user = optionalUser.get();
 
         AuthResponse response = new AuthResponse(
                 "Perfil carregado com sucesso",

@@ -2,11 +2,13 @@ package com.backend.gs.dao;
 
 import com.backend.gs.database.OracleConnection;
 import com.backend.gs.model.JobReport;
+import org.springframework.stereotype.Repository;
 
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
+@Repository
 public class JobReportDao {
 
     public JobReport save(JobReport jobReport) throws SQLException {

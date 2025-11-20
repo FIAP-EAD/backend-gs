@@ -2,10 +2,12 @@ package com.backend.gs.dao;
 
 import com.backend.gs.database.OracleConnection;
 import com.backend.gs.model.User;
+import org.springframework.stereotype.Repository;
 
 import java.sql.*;
 import java.util.Optional;
 
+@Repository
 public class UserDao {
 
     public User save(User user) {
@@ -44,12 +46,7 @@ public class UserDao {
             try (ResultSet rs = stmt.executeQuery()) {
 
                 if (rs.next()) {
-                    User user = new User();
-                    user.setId(rs.getLong("id"));
-                    user.setUsername(rs.getString("username"));
-                    user.setEmail(rs.getString("email"));
-                    user.setPassword(rs.getString("password"));
-                    return Optional.of(user);
+                    return Optional.of(mapUser(rs));
                 }
 
                 return Optional.empty();
@@ -71,12 +68,7 @@ public class UserDao {
             try (ResultSet rs = stmt.executeQuery()) {
 
                 if (rs.next()) {
-                    User user = new User();
-                    user.setId(rs.getLong("id"));
-                    user.setUsername(rs.getString("username"));
-                    user.setEmail(rs.getString("email"));
-                    user.setPassword(rs.getString("password"));
-                    return Optional.of(user);
+                    return Optional.of(mapUser(rs));
                 }
 
                 return Optional.empty();
@@ -98,12 +90,7 @@ public class UserDao {
             try (ResultSet rs = stmt.executeQuery()) {
 
                 if (rs.next()) {
-                    User user = new User();
-                    user.setId(rs.getLong("id"));
-                    user.setUsername(rs.getString("username"));
-                    user.setEmail(rs.getString("email"));
-                    user.setPassword(rs.getString("password"));
-                    return Optional.of(user);
+                    return Optional.of(mapUser(rs));
                 }
 
                 return Optional.empty();
@@ -123,11 +110,7 @@ public class UserDao {
             stmt.setString(1, username);
 
             try (ResultSet rs = stmt.executeQuery()) {
-
-                if (rs.next()) {
-                    return rs.getInt(1) > 0;
-                }
-                return false;
+                return rs.next() && rs.getInt(1) > 0;
             }
 
         } catch (SQLException e) {
@@ -144,15 +127,20 @@ public class UserDao {
             stmt.setString(1, email);
 
             try (ResultSet rs = stmt.executeQuery()) {
-
-                if (rs.next()) {
-                    return rs.getInt(1) > 0;
-                }
-                return false;
+                return rs.next() && rs.getInt(1) > 0;
             }
 
         } catch (SQLException e) {
             throw new RuntimeException("Erro ao verificar email: " + e.getMessage(), e);
         }
+    }
+
+    private User mapUser(ResultSet rs) throws SQLException {
+        User user = new User();
+        user.setId(rs.getLong("id"));
+        user.setUsername(rs.getString("username"));
+        user.setEmail(rs.getString("email"));
+        user.setPassword(rs.getString("password"));
+        return user;
     }
 }
