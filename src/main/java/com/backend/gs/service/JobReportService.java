@@ -4,6 +4,7 @@ import com.backend.gs.dto.JobReportRequest;
 import com.backend.gs.dto.JobReportResponse;
 import com.backend.gs.model.JobReport;
 import com.backend.gs.repository.JobReportRepository;
+import com.backend.gs.utils.JobInfoUtil;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -20,9 +21,6 @@ public class JobReportService {
 
     public JobReportResponse create(JobReportRequest request) {
 
-        if (request.getCompany().length() < 2) {
-            throw new IllegalArgumentException("Nome da empresa muito curto.");
-        }
 
         JobReport jobReport = new JobReport();
         jobReport.setCompany(request.getCompany());
@@ -31,29 +29,21 @@ public class JobReportService {
 
         JobReport saved = repository.save(jobReport);
 
-        boolean sent = sendToFakeAWS(saved);
+        sendToLambda(saved);
 
-        JobReportResponse response = new JobReportResponse();
-        response.setId(saved.getIdJobReport());
-        response.setCompany(saved.getCompany());
-        response.setTitle(saved.getTitle());
-        response.setDescription(saved.getDescription());
-        response.setSentToAWS(sent);
+        String jobInfo = JobInfoUtil.buildJobInfo(saved);
 
-        return response;
+        return new JobReportResponse(jobInfo);
     }
 
-    private boolean sendToFakeAWS(JobReport report) {
+    private void sendToLambda(JobReport report) {
         try {
-            String url = "https://aws.fake-endpoint.com/sendReport";
+            String lambdaUrl =
+                    "https://lv6bwqn7dfkqulrqquhlz3fhdy0zuzbx.lambda-url.us-east-1.on.aws/";
 
-            restTemplate.postForObject(url, report, Void.class);
+            restTemplate.postForObject(lambdaUrl, report, Void.class);
 
-            return true;
-
-        } catch (Exception e) {
-
-            return false;
+        } catch (Exception ignored) {
         }
     }
 }

@@ -2,7 +2,6 @@ package com.backend.gs.controller;
 
 import com.backend.gs.dto.JobReportRequest;
 import com.backend.gs.dto.JobReportResponse;
-import com.backend.gs.model.JobReport;
 import com.backend.gs.service.JobReportService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
