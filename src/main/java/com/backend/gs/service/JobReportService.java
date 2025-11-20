@@ -1,6 +1,6 @@
 package com.backend.gs.service;
 
-import com.backend.gs.dao.JobReportDAO;
+import com.backend.gs.dao.JobReportDao;
 import com.backend.gs.model.JobReport;
 import com.backend.gs.dto.JobReportRequest;
 import com.backend.gs.dto.JobReportResponse;
@@ -15,14 +15,14 @@ import java.net.http.HttpResponse;
 @Service
 public class JobReportService {
 
-    private final JobReportDAO jobReportDAO;
+    private final JobReportDao jobReportDAO;
     private final JobInfoUtil jobInfoUtil;
 
     private static final String LAMBDA_URL =
             "https://lv6bwqn7dfkqulrqquhlz3fhdy0zuzbx.lambda-url.us-east-1.on.aws/";
 
     public JobReportService() {
-        this.jobReportDAO = new JobReportDAO();
+        this.jobReportDAO = new JobReportDao();
         this.jobInfoUtil = new JobInfoUtil();
     }
 

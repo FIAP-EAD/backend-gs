@@ -7,7 +7,7 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
-public class JobReportDAO {
+public class JobReportDao {
 
     public JobReport save(JobReport jobReport) throws SQLException {
         String sql = "INSERT INTO JOB_REPORT (COMPANY, TITLE, DESCRIPTION) VALUES (?, ?, ?)";

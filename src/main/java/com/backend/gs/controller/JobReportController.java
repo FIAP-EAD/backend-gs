@@ -18,8 +18,8 @@ public class JobReportController {
     }
 
     @PostMapping("/create")
-    public ResponseEntity<JobReportResponse> create(@RequestBody @Valid JobReportRequest request) {
-        JobReportResponse response = service.create(request);
+    public ResponseEntity<JobReportResponse> create(@RequestBody @Valid JobReportRequest request) throws Exception {
+        JobReportResponse response = service.createJobReport(request);
         return ResponseEntity.status(201).body(response);
     }
 

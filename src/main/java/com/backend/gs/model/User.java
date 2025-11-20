@@ -1,31 +1,23 @@
 package com.backend.gs.model;
 
-import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
-@Entity
-@Table(name = "users")
 public class User {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @NotBlank(message = "O nome de usuário não pode estar vazio.")
     @Size(min = 3, max = 50, message = "O nome de usuário deve conter entre 3 e 50 caracteres.")
-    @Column(unique = true, nullable = false)
     private String username;
 
     @NotBlank(message = "O email não pode estar vazio.")
     @Email(message = "Informe um email válido.")
-    @Column(unique = true, nullable = false)
     private String email;
 
     @NotBlank(message = "A senha não pode estar vazia.")
     @Size(min = 6, message = "A senha deve ter pelo menos 6 caracteres.")
-    @Column(nullable = false)
     private String password;
 
     public User() {
