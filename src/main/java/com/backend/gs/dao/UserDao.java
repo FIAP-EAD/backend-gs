@@ -18,20 +18,25 @@ public class UserDao {
         String sql = "INSERT INTO users (username, email, password) VALUES (?, ?, ?)";
 
         try (Connection conn = oracleConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            
             stmt.setString(1, user.getUsername());
             stmt.setString(2, user.getEmail());
             stmt.setString(3, user.getPassword());
-
+            
             stmt.executeUpdate();
-
-            try (ResultSet rs = stmt.getGeneratedKeys()) {
-                if (rs.next()) {
-                    user.setId(rs.getLong(1));
+            
+            // Busca o ID do usuário recém-criado (Oracle não suporta getGeneratedKeys da mesma forma)
+            try (PreparedStatement selectStmt = conn.prepareStatement(
+                    "SELECT id FROM users WHERE username = ? ORDER BY id DESC FETCH FIRST 1 ROWS ONLY")) {
+                selectStmt.setString(1, user.getUsername());
+                try (ResultSet rs = selectStmt.executeQuery()) {
+                    if (rs.next()) {
+                        user.setId(rs.getLong(1));
+                    }
                 }
             }
-
+            
             return user;
 
         } catch (SQLException e) {

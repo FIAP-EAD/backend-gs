@@ -19,10 +19,6 @@ public class JobReportRequest {
 
     @NotBlank(message = "A descrição não pode estar vazia.")
     @Size(min = 50, message = "A descrição deve ter no mínimo 50 caracteres.")
-    @Pattern(
-            regexp = "^(?!.*(.)\\1{10}).*$",
-            message = "A descrição não pode conter caracteres repetidos de forma excessiva."
-    )
     private String description;
 
     private String callbackUrl;

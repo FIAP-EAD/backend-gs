@@ -19,7 +19,7 @@ public class AudioFileDao {
         String sql = "INSERT INTO AUDIO_FILES (ID_JOB_REPORT, S3_PATH, FILE_NAME, CREATED_AT) VALUES (?, ?, ?, CURRENT_TIMESTAMP)";
 
         try (Connection conn = oracleConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setLong(1, jobReportId);
             stmt.setString(2, s3Path);
@@ -27,19 +27,26 @@ public class AudioFileDao {
 
             stmt.executeUpdate();
 
-            // Recupera o ID gerado
-            try (ResultSet rs = stmt.getGeneratedKeys()) {
-                if (rs.next()) {
-                    AudioFile audioFile = new AudioFile();
-                    audioFile.setIdAudioFile(rs.getLong(1));
-                    audioFile.setIdJobReport(jobReportId);
-                    audioFile.setS3Path(s3Path);
-                    audioFile.setFileName(fileName);
-                    return audioFile;
+            // Busca o ID do áudio recém-criado (Oracle não suporta getGeneratedKeys da mesma forma)
+            AudioFile audioFile = new AudioFile();
+            audioFile.setIdJobReport(jobReportId);
+            audioFile.setS3Path(s3Path);
+            audioFile.setFileName(fileName);
+            
+            // Busca o ID gerado
+            try (PreparedStatement selectStmt = conn.prepareStatement(
+                    "SELECT ID_AUDIO_FILE, CREATED_AT FROM AUDIO_FILES WHERE ID_JOB_REPORT = ? AND S3_PATH = ? ORDER BY CREATED_AT DESC FETCH FIRST 1 ROWS ONLY")) {
+                selectStmt.setLong(1, jobReportId);
+                selectStmt.setString(2, s3Path);
+                try (ResultSet rs = selectStmt.executeQuery()) {
+                    if (rs.next()) {
+                        audioFile.setIdAudioFile(rs.getLong("ID_AUDIO_FILE"));
+                        audioFile.setCreatedAt(rs.getTimestamp("CREATED_AT"));
+                    }
                 }
             }
 
-            return null;
+            return audioFile;
         }
     }
 

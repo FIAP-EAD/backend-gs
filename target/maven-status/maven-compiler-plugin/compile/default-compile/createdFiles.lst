@@ -20,6 +20,8 @@ com/backend/gs/dto/PresignedUploadUrlRequest.class
 com/backend/gs/dto/AuthResponse.class
 com/backend/gs/dto/JobReportStatusResponse$Status.class
 com/backend/gs/service/JobReportService$PresignedUrlLambdaResponse.class
+com/backend/gs/dto/GenerateUploadUrlsResponse$UploadUrlInfo.class
+com/backend/gs/dto/GenerateUploadUrlsResponse.class
 com/backend/gs/dao/UserDao.class
 com/backend/gs/dao/JobReportDao.class
 com/backend/gs/model/JobReport.class
@@ -29,6 +31,8 @@ com/backend/gs/service/AuthService.class
 com/backend/gs/service/JobReportService.class
 com/backend/gs/dto/PresignedUrlResponse.class
 com/backend/gs/model/User.class
+com/backend/gs/dto/GenerateUploadUrlsRequest.class
+com/backend/gs/config/PublicEndpointAuthenticationEntryPoint.class
 com/backend/gs/dao/AudioFileDao.class
 com/backend/gs/BackendGsApplication.class
 com/backend/gs/database/OracleConnection.class

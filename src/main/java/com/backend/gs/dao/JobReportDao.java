@@ -19,7 +19,7 @@ public class JobReportDao {
         String sql = "INSERT INTO JOB_REPORT (COMPANY, TITLE, DESCRIPTION) VALUES (?, ?, ?)";
 
         try (Connection conn = oracleConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setString(1, jobReport.getCompany());
             stmt.setString(2, jobReport.getTitle());
@@ -27,10 +27,15 @@ public class JobReportDao {
 
             stmt.executeUpdate();
 
-            // Recupera o ID gerado
-            try (ResultSet rs = stmt.getGeneratedKeys()) {
+            // Busca o ID do job report recém-criado (Oracle não suporta getGeneratedKeys da mesma forma)
+            try (PreparedStatement selectStmt = conn.prepareStatement(
+                    "SELECT ID_JOB_REPORT FROM JOB_REPORT WHERE COMPANY = ? AND TITLE = ? ORDER BY ID_JOB_REPORT DESC FETCH FIRST 1 ROWS ONLY")) {
+                selectStmt.setString(1, jobReport.getCompany());
+                selectStmt.setString(2, jobReport.getTitle());
+                try (ResultSet rs = selectStmt.executeQuery()) {
                 if (rs.next()) {
                     jobReport.setIdJobReport(rs.getLong(1));
+                    }
                 }
             }
 

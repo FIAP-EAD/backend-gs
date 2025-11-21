@@ -19,7 +19,11 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -35,6 +39,12 @@ public class JobReportService {
 
     @Value("${lambda.presigned.url:https://6t7s4lvjy7aohaxruak6a3arfy0byiau.lambda-url.us-east-1.on.aws/}")
     private String lambdaPresignedUrl;
+
+    @Value("${lambda.upload.urls:https://mcy4uuho2gkb3ey3f5fz3cko2a0kmcgl.lambda-url.us-east-1.on.aws/}")
+    private String lambdaUploadUrlsUrl;
+
+    @Value("${lambda.generate.report.url:}")
+    private String lambdaGenerateReportUrl;
 
     @Value("${s3.bucket.name}")
     private String s3BucketName;
@@ -112,45 +122,131 @@ public class JobReportService {
 
         List<AudioFile> audioFiles = audioFileDao.findByJobReportId(jobReportId);
         
+        System.out.println("=== GET STATUS para Job Report " + jobReportId + " ===");
+        System.out.println("Áudios encontrados: " + audioFiles.size());
+        
+        // Remove duplicatas baseado no S3_PATH (mantém apenas o mais recente)
+        if (audioFiles.size() > 0) {
+            Map<String, AudioFile> uniqueAudios = new LinkedHashMap<>();
+            for (AudioFile audio : audioFiles) {
+                String s3Path = audio.getS3Path();
+                // Se já existe, mantém o mais recente (baseado no CREATED_AT)
+                if (!uniqueAudios.containsKey(s3Path) || 
+                    (audio.getCreatedAt() != null && uniqueAudios.get(s3Path).getCreatedAt() != null &&
+                     audio.getCreatedAt().after(uniqueAudios.get(s3Path).getCreatedAt()))) {
+                    uniqueAudios.put(s3Path, audio);
+                }
+            }
+            audioFiles = new ArrayList<>(uniqueAudios.values());
+            System.out.println("Áudios únicos após remoção de duplicatas: " + audioFiles.size());
+        }
+        
+        System.out.println("Session ID: " + jobReport.getSessionId());
+        
         JobReportStatusResponse.Status status;
         List<PresignedUrlResponse> audioUrls = null;
         String reportUrl = null;
 
         if (audioFiles.isEmpty()) {
             status = JobReportStatusResponse.Status.PENDING;
+            System.out.println("Status: PENDING (nenhum áudio encontrado)");
         } else {
-            audioUrls = generatePresignedUrls(audioFiles);
+            try {
+                audioUrls = generatePresignedUrls(audioFiles);
+                System.out.println("URLs pré-assinadas geradas: " + (audioUrls != null ? audioUrls.size() : 0));
+            } catch (Exception e) {
+                System.err.println("ERRO ao gerar presigned URLs: " + e.getMessage());
+                e.printStackTrace();
+                // Mesmo com erro, define status como AUDIOS_READY se houver áudios salvos
+                audioUrls = new ArrayList<>();
+            }
             
-            // Verifica se relatório está pronto no S3
-            if (jobReport.getSessionId() != null) {
-                String reportS3Path = "s3://" + s3BucketName + "/reports/" + jobReport.getSessionId() + "/report.json";
+            // Verifica se relatório está pronto chamando a Lambda
+            if (jobReport.getSessionId() != null && lambdaGenerateReportUrl != null && !lambdaGenerateReportUrl.isEmpty()) {
                 try {
-                    // Tenta gerar URL pré-assinada do relatório
-                    String bucket = s3Service.extractBucket(reportS3Path);
-                    String key = s3Service.extractKey(reportS3Path);
-                    reportUrl = s3Service.generatePresignedUrl(bucket, key, 3600);
-                    status = JobReportStatusResponse.Status.REPORT_READY;
+                    // Chama Lambda para verificar/gerar relatório
+                    reportUrl = checkOrGenerateReport(jobReport.getSessionId());
+                    if (reportUrl != null && !reportUrl.isEmpty()) {
+                        status = JobReportStatusResponse.Status.REPORT_READY;
+                        System.out.println("Status: REPORT_READY");
+                    } else {
+                        status = JobReportStatusResponse.Status.AUDIOS_READY;
+                        System.out.println("Status: AUDIOS_READY (relatório ainda não gerado)");
+                    }
                 } catch (Exception e) {
-                    // Relatório ainda não está pronto
+                    // Relatório ainda não está pronto ou erro ao chamar Lambda
                     status = JobReportStatusResponse.Status.AUDIOS_READY;
+                    System.out.println("Status: AUDIOS_READY (erro ao verificar relatório: " + e.getMessage() + ")");
                 }
             } else {
                 status = JobReportStatusResponse.Status.AUDIOS_READY;
+                System.out.println("Status: AUDIOS_READY (sem session_id ou Lambda não configurada)");
             }
         }
 
+        System.out.println("=== FIM GET STATUS ===");
         return new JobReportStatusResponse(status, audioUrls, reportUrl);
     }
 
     public List<PresignedUrlResponse> generatePresignedUrls(List<AudioFile> audioFiles) {
         return audioFiles.stream()
                 .map(audioFile -> {
-                    String bucket = s3Service.extractBucket(audioFile.getS3Path());
-                    String key = s3Service.extractKey(audioFile.getS3Path());
-                    String presignedUrl = s3Service.generatePresignedUrl(bucket, key, 3600);
-                    return new PresignedUrlResponse(audioFile.getS3Path(), presignedUrl, audioFile.getFileName());
+                    try {
+                        // Chama a Lambda para gerar presigned URL de download
+                        String presignedUrl = generatePresignedDownloadUrl(audioFile.getS3Path());
+                        return new PresignedUrlResponse(audioFile.getS3Path(), presignedUrl, audioFile.getFileName());
+                    } catch (Exception e) {
+                        System.err.println("ERRO ao gerar presigned URL para " + audioFile.getS3Path() + ": " + e.getMessage());
+                        e.printStackTrace();
+                        // Retorna uma resposta sem presigned URL em caso de erro
+                        return new PresignedUrlResponse(audioFile.getS3Path(), null, audioFile.getFileName());
+                    }
                 })
+                .filter(response -> response != null)
                 .collect(Collectors.toList());
+    }
+
+    private String generatePresignedDownloadUrl(String s3Path) throws Exception {
+        HttpClient client = HttpClient.newHttpClient();
+
+        // Cria o JSON com s3_path para download
+        Map<String, String> requestBody = new HashMap<>();
+        requestBody.put("s3_path", s3Path);
+        String jsonBody = objectMapper.writeValueAsString(requestBody);
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(lambdaPresignedUrl))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+                .build();
+
+        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+        if (response.statusCode() != 200) {
+            throw new Exception("Failed to get presigned URL from Lambda: " + response.body());
+        }
+
+        // Parse da resposta da Lambda
+        String responseBody = response.body();
+        try {
+            // Lambda Function URL retorna {statusCode: 200, body: "..."}
+            com.fasterxml.jackson.databind.JsonNode jsonNode = objectMapper.readTree(responseBody);
+            String bodyStr;
+            if (jsonNode.has("body")) {
+                bodyStr = jsonNode.get("body").asText();
+            } else {
+                bodyStr = responseBody;
+            }
+            
+            com.fasterxml.jackson.databind.JsonNode bodyNode = objectMapper.readTree(bodyStr);
+            if (bodyNode.has("presigned_url")) {
+                return bodyNode.get("presigned_url").asText();
+            } else {
+                throw new Exception("Lambda response missing presigned_url: " + bodyStr);
+            }
+        } catch (Exception e) {
+            throw new Exception("Failed to parse Lambda response: " + responseBody, e);
+        }
     }
 
     public void updateSessionId(Long jobReportId, String sessionId) throws Exception {
@@ -200,6 +296,107 @@ public class JobReportService {
                 lambdaResponse.getS3_key(),
                 lambdaResponse.getExpires_in()
         );
+    }
+
+    public com.backend.gs.dto.GenerateUploadUrlsResponse generateMultipleUploadUrls(Long jobReportId, Integer numQuestions) throws Exception {
+        HttpClient client = HttpClient.newHttpClient();
+
+        // Cria o payload para a Lambda
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("job_report_id", jobReportId);
+        payload.put("num_questions", numQuestions);
+        
+        String jsonBody = objectMapper.writeValueAsString(payload);
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(lambdaUploadUrlsUrl))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+                .build();
+
+        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+        if (response.statusCode() != 200) {
+            throw new Exception("Failed to get upload URLs from Lambda: " + response.body());
+        }
+
+        // Parse da resposta da Lambda
+        String responseBody = response.body();
+        
+        try {
+            // A Lambda retorna diretamente o JSON (não tem wrapper statusCode/body)
+            com.fasterxml.jackson.databind.JsonNode jsonNode = objectMapper.readTree(responseBody);
+            
+            String sessionId = jsonNode.get("session_id").asText();
+            Integer expiresIn = jsonNode.has("expires_in") ? jsonNode.get("expires_in").asInt() : 3600;
+            
+            List<com.backend.gs.dto.GenerateUploadUrlsResponse.UploadUrlInfo> uploadUrls = new ArrayList<>();
+            
+            com.fasterxml.jackson.databind.JsonNode urlsArray = jsonNode.get("upload_urls");
+            if (urlsArray != null && urlsArray.isArray()) {
+                for (com.fasterxml.jackson.databind.JsonNode urlNode : urlsArray) {
+                    com.backend.gs.dto.GenerateUploadUrlsResponse.UploadUrlInfo urlInfo = 
+                        new com.backend.gs.dto.GenerateUploadUrlsResponse.UploadUrlInfo(
+                            urlNode.get("question_index").asInt(),
+                            urlNode.get("presigned_url").asText(),
+                            urlNode.get("s3_key").asText()
+                        );
+                    uploadUrls.add(urlInfo);
+                }
+            }
+            
+            return new com.backend.gs.dto.GenerateUploadUrlsResponse(sessionId, uploadUrls, expiresIn);
+            
+        } catch (Exception e) {
+            throw new Exception("Failed to parse Lambda response: " + responseBody, e);
+        }
+    }
+
+    /**
+     * Verifica se o relatório existe ou tenta gerá-lo chamando a Lambda
+     * Retorna a URL do relatório se existir, ou null se ainda não foi gerado
+     */
+    private String checkOrGenerateReport(String sessionId) throws Exception {
+        if (lambdaGenerateReportUrl == null || lambdaGenerateReportUrl.isEmpty()) {
+            return null;
+        }
+
+        HttpClient client = HttpClient.newHttpClient();
+
+        // Payload para a Lambda de relatório
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("session_id", sessionId);
+        
+        String jsonBody = objectMapper.writeValueAsString(payload);
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(lambdaGenerateReportUrl))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+                .build();
+
+        try {
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() == 200) {
+                // Parse da resposta
+                com.fasterxml.jackson.databind.JsonNode jsonNode = objectMapper.readTree(response.body());
+                
+                // Verifica se tem report_url na resposta
+                if (jsonNode.has("report_url")) {
+                    return jsonNode.get("report_url").asText();
+                } else if (jsonNode.has("report_path")) {
+                    // Se retornar s3:// path, precisaria gerar presigned URL
+                    // Por enquanto, retorna null (relatório ainda não está pronto)
+                    return null;
+                }
+            }
+            
+            return null;
+        } catch (Exception e) {
+            System.err.println("Erro ao chamar Lambda de relatório: " + e.getMessage());
+            return null;
+        }
     }
 
     // Classes auxiliares para serialização JSON

@@ -12,6 +12,7 @@ public class JobReportStatusResponse {
         COMPLETED
     }
 
+    @JsonProperty("status")
     private Status status;
 
     @JsonProperty("audio_urls")
