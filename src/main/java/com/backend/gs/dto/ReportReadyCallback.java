@@ -10,6 +10,9 @@ public class ReportReadyCallback {
     @JsonProperty("report_path")
     private String reportPath;
 
+    @JsonProperty("report_url")
+    private String reportUrl;
+
     @JsonProperty("job_report_id")
     private Long jobReportId;
 
@@ -27,6 +30,14 @@ public class ReportReadyCallback {
 
     public void setReportPath(String reportPath) {
         this.reportPath = reportPath;
+    }
+
+    public String getReportUrl() {
+        return reportUrl;
+    }
+
+    public void setReportUrl(String reportUrl) {
+        this.reportUrl = reportUrl;
     }
 
     public Long getJobReportId() {

@@ -59,6 +59,13 @@ public class JobReportDao {
                     job.setTitle(rs.getString("TITLE"));
                     job.setDescription(rs.getString("DESCRIPTION"));
                     job.setSessionId(rs.getString("SESSION_ID"));
+                    // Tenta ler REPORT_URL se existir
+                    try {
+                        job.setReportUrl(rs.getString("REPORT_URL"));
+                    } catch (SQLException e) {
+                        // Coluna ainda não existe, ignora
+                        job.setReportUrl(null);
+                    }
                     return job;
                 }
             }
@@ -82,6 +89,14 @@ public class JobReportDao {
                 job.setCompany(rs.getString("COMPANY"));
                 job.setTitle(rs.getString("TITLE"));
                 job.setDescription(rs.getString("DESCRIPTION"));
+                job.setSessionId(rs.getString("SESSION_ID"));
+                // Tenta ler REPORT_URL se existir
+                try {
+                    job.setReportUrl(rs.getString("REPORT_URL"));
+                } catch (SQLException e) {
+                    // Coluna ainda não existe, ignora
+                    job.setReportUrl(null);
+                }
                 list.add(job);
             }
         }
@@ -129,6 +144,35 @@ public class JobReportDao {
 
             int rows = stmt.executeUpdate();
             return rows > 0;
+        }
+    }
+
+    public boolean updateReportUrl(long id, String reportUrl) throws SQLException {
+        String sql = "UPDATE JOB_REPORT SET REPORT_URL = ? WHERE ID_JOB_REPORT = ?";
+
+        try (Connection conn = oracleConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, reportUrl);
+            stmt.setLong(2, id);
+
+            int rows = stmt.executeUpdate();
+            return rows > 0;
+        }
+    }
+    
+    /**
+     * Altera o tamanho da coluna REPORT_URL para suportar URLs longas da AWS
+     * Execute este método apenas uma vez para fazer a migração
+     */
+    public void alterReportUrlColumnSize() throws SQLException {
+        String sql = "ALTER TABLE JOB_REPORT MODIFY REPORT_URL VARCHAR2(2000)";
+        
+        try (Connection conn = oracleConnection.getConnection();
+             Statement stmt = conn.createStatement()) {
+            
+            stmt.execute(sql);
+            System.out.println("✅ Coluna REPORT_URL alterada com sucesso para VARCHAR2(2000)");
         }
     }
 }

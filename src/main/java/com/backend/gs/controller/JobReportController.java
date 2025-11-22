@@ -104,16 +104,26 @@ public class JobReportController {
                 return ResponseEntity.badRequest().body("job_report_id is required");
             }
 
+            System.out.println("📥 Recebido callback de relatório pronto:");
+            System.out.println("   Job Report ID: " + jobReportId);
+            System.out.println("   Session ID: " + callback.getSessionId());
+            System.out.println("   Report URL: " + callback.getReportUrl());
+
             // Atualiza session_id se fornecido
             if (callback.getSessionId() != null) {
                 service.updateSessionId(jobReportId, callback.getSessionId());
             }
 
-            // TODO: Salvar path do relatório quando implementar entidade Report
-            // Por enquanto, apenas retorna OK
+            // Salva URL do relatório
+            if (callback.getReportUrl() != null) {
+                service.updateReportUrl(jobReportId, callback.getReportUrl());
+                System.out.println("✅ Report URL salva no banco!");
+            }
 
             return ResponseEntity.ok().build();
         } catch (Exception e) {
+            System.err.println("❌ Erro ao processar callback: " + e.getMessage());
+            e.printStackTrace();
             return ResponseEntity.status(500).body("Error processing callback: " + e.getMessage());
         }
     }
@@ -121,11 +131,17 @@ public class JobReportController {
     @GetMapping("/status/{id}")
     public ResponseEntity<JobReportStatusResponse> getStatus(@PathVariable Long id) {
         try {
+            System.out.println("🔍 GET /status/" + id);
             JobReportStatusResponse status = service.getStatus(id);
+            System.out.println("✅ Status retornado: " + status.getStatus());
             return ResponseEntity.ok(status);
         } catch (IllegalArgumentException e) {
+            System.err.println("❌ Job report não encontrado: " + id);
+            e.printStackTrace();
             return ResponseEntity.notFound().build();
         } catch (Exception e) {
+            System.err.println("❌ ERRO ao buscar status: " + e.getMessage());
+            e.printStackTrace();
             return ResponseEntity.status(500).build();
         }
     }
@@ -172,10 +188,12 @@ public class JobReportController {
             System.out.println("=== GENERATE UPLOAD URLS ===");
             System.out.println("Job Report ID: " + request.getJobReportId());
             System.out.println("Num Questions: " + request.getNumQuestions());
+            System.out.println("Callback URL: " + request.getCallbackUrl());
             
             GenerateUploadUrlsResponse response = service.generateMultipleUploadUrls(
                     request.getJobReportId(), 
-                    request.getNumQuestions()
+                    request.getNumQuestions(),
+                    request.getCallbackUrl()
             );
             
             System.out.println("✅ URLs geradas com sucesso!");
@@ -188,6 +206,29 @@ public class JobReportController {
             e.printStackTrace();
             return ResponseEntity.status(500).body(Map.of(
                 "error", "Failed to generate upload URLs",
+                "message", e.getMessage()
+            ));
+        }
+    }
+    
+    /**
+     * Endpoint temporário para migração do banco de dados
+     * Aumenta o tamanho da coluna REPORT_URL
+     * REMOVER APÓS EXECUTAR UMA VEZ
+     */
+    @PostMapping("/migrate/report-url-column")
+    public ResponseEntity<?> migrateReportUrlColumn() {
+        try {
+            service.migrateReportUrlColumn();
+            return ResponseEntity.ok(Map.of(
+                "message", "Coluna REPORT_URL migrada com sucesso para VARCHAR2(2000)",
+                "status", "success"
+            ));
+        } catch (Exception e) {
+            System.err.println("❌ Erro na migração: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(500).body(Map.of(
+                "error", "Falha na migração",
                 "message", e.getMessage()
             ));
         }

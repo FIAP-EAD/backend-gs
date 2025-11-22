@@ -7,6 +7,7 @@ public class JobReport {
     private String title;
     private String description;
     private String sessionId;
+    private String reportUrl;
 
     public long getIdJobReport() {
         return idJobReport;
@@ -46,5 +47,13 @@ public class JobReport {
 
     public void setSessionId(String sessionId) {
         this.sessionId = sessionId;
+    }
+
+    public String getReportUrl() {
+        return reportUrl;
+    }
+
+    public void setReportUrl(String reportUrl) {
+        this.reportUrl = reportUrl;
     }
 }

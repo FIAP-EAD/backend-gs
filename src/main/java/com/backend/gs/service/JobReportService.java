@@ -43,8 +43,8 @@ public class JobReportService {
     @Value("${lambda.upload.urls:https://mcy4uuho2gkb3ey3f5fz3cko2a0kmcgl.lambda-url.us-east-1.on.aws/}")
     private String lambdaUploadUrlsUrl;
 
-    @Value("${lambda.generate.report.url:}")
-    private String lambdaGenerateReportUrl;
+    @Value("${lambda.check.report.url:}")
+    private String lambdaCheckReportUrl;
 
     @Value("${s3.bucket.name}")
     private String s3BucketName;
@@ -161,26 +161,37 @@ public class JobReportService {
                 audioUrls = new ArrayList<>();
             }
             
-            // Verifica se relatório está pronto chamando a Lambda
-            if (jobReport.getSessionId() != null && lambdaGenerateReportUrl != null && !lambdaGenerateReportUrl.isEmpty()) {
+            // Verifica se relatório está pronto
+            // Prioridade 1: Verifica se já tem URL salva no banco (via callback)
+            if (jobReport.getReportUrl() != null && !jobReport.getReportUrl().isEmpty()) {
+                reportUrl = jobReport.getReportUrl();
+                status = JobReportStatusResponse.Status.REPORT_READY;
+                System.out.println("Status: REPORT_READY (URL do banco)");
+            }
+            // Prioridade 2: Verifica via Lambda (polling/fallback)
+            else if (jobReport.getSessionId() != null && lambdaCheckReportUrl != null && !lambdaCheckReportUrl.isEmpty()) {
                 try {
-                    // Chama Lambda para verificar/gerar relatório
                     reportUrl = checkOrGenerateReport(jobReport.getSessionId());
                     if (reportUrl != null && !reportUrl.isEmpty()) {
-                        status = JobReportStatusResponse.Status.REPORT_READY;
-                        System.out.println("Status: REPORT_READY");
+                        // Salva no banco para não precisar verificar novamente
+                        try {
+                            jobReportDAO.updateReportUrl(jobReport.getIdJobReport(), reportUrl);
+                        } catch (Exception e) {
+                            System.err.println("⚠️ Erro ao salvar reportUrl no banco: " + e.getMessage());
+                        }
+                    status = JobReportStatusResponse.Status.REPORT_READY;
+                        System.out.println("Status: REPORT_READY (verificado via Lambda)");
                     } else {
                         status = JobReportStatusResponse.Status.AUDIOS_READY;
                         System.out.println("Status: AUDIOS_READY (relatório ainda não gerado)");
                     }
                 } catch (Exception e) {
-                    // Relatório ainda não está pronto ou erro ao chamar Lambda
                     status = JobReportStatusResponse.Status.AUDIOS_READY;
                     System.out.println("Status: AUDIOS_READY (erro ao verificar relatório: " + e.getMessage() + ")");
                 }
             } else {
                 status = JobReportStatusResponse.Status.AUDIOS_READY;
-                System.out.println("Status: AUDIOS_READY (sem session_id ou Lambda não configurada)");
+                System.out.println("Status: AUDIOS_READY (sem session_id)");
             }
         }
 
@@ -253,6 +264,14 @@ public class JobReportService {
         jobReportDAO.updateSessionId(jobReportId, sessionId);
     }
 
+    public void updateReportUrl(Long jobReportId, String reportUrl) throws Exception {
+        jobReportDAO.updateReportUrl(jobReportId, reportUrl);
+    }
+    
+    public void migrateReportUrlColumn() throws Exception {
+        jobReportDAO.alterReportUrlColumnSize();
+    }
+
     public PresignedUploadUrlResponse generatePresignedUploadUrl(String sessionId, String filename) throws Exception {
         HttpClient client = HttpClient.newHttpClient();
 
@@ -298,13 +317,14 @@ public class JobReportService {
         );
     }
 
-    public com.backend.gs.dto.GenerateUploadUrlsResponse generateMultipleUploadUrls(Long jobReportId, Integer numQuestions) throws Exception {
+    public com.backend.gs.dto.GenerateUploadUrlsResponse generateMultipleUploadUrls(Long jobReportId, Integer numQuestions, String callbackUrl) throws Exception {
         HttpClient client = HttpClient.newHttpClient();
 
         // Cria o payload para a Lambda
         Map<String, Object> payload = new HashMap<>();
         payload.put("job_report_id", jobReportId);
         payload.put("num_questions", numQuestions);
+        payload.put("callback_url", callbackUrl); // Adiciona callback_url
         
         String jsonBody = objectMapper.writeValueAsString(payload);
 
@@ -353,48 +373,58 @@ public class JobReportService {
     }
 
     /**
-     * Verifica se o relatório existe ou tenta gerá-lo chamando a Lambda
+     * Verifica se o relatório existe chamando a Lambda CheckReportStatus
      * Retorna a URL do relatório se existir, ou null se ainda não foi gerado
      */
     private String checkOrGenerateReport(String sessionId) throws Exception {
-        if (lambdaGenerateReportUrl == null || lambdaGenerateReportUrl.isEmpty()) {
+        if (sessionId == null || sessionId.isEmpty()) {
+            return null;
+        }
+
+        if (lambdaCheckReportUrl == null || lambdaCheckReportUrl.isEmpty()) {
+            System.err.println("⚠️ Lambda CheckReportStatus não configurada");
             return null;
         }
 
         HttpClient client = HttpClient.newHttpClient();
 
-        // Payload para a Lambda de relatório
+        // Payload para a Lambda
         Map<String, Object> payload = new HashMap<>();
         payload.put("session_id", sessionId);
         
         String jsonBody = objectMapper.writeValueAsString(payload);
 
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(lambdaGenerateReportUrl))
+                .uri(URI.create(lambdaCheckReportUrl))
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
                 .build();
 
         try {
+            System.out.println("🔍 Verificando relatório via Lambda: " + sessionId);
+            
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
 
             if (response.statusCode() == 200) {
                 // Parse da resposta
                 com.fasterxml.jackson.databind.JsonNode jsonNode = objectMapper.readTree(response.body());
                 
-                // Verifica se tem report_url na resposta
-                if (jsonNode.has("report_url")) {
-                    return jsonNode.get("report_url").asText();
-                } else if (jsonNode.has("report_path")) {
-                    // Se retornar s3:// path, precisaria gerar presigned URL
-                    // Por enquanto, retorna null (relatório ainda não está pronto)
+                boolean exists = jsonNode.has("exists") && jsonNode.get("exists").asBoolean();
+                
+                if (exists && jsonNode.has("report_url")) {
+                    String reportUrl = jsonNode.get("report_url").asText();
+                    System.out.println("✅ Relatório encontrado!");
+                    return reportUrl;
+                } else {
+                    System.out.println("⏳ Relatório ainda não foi gerado");
                     return null;
                 }
+            } else {
+                System.err.println("❌ Lambda retornou status " + response.statusCode());
+                return null;
             }
-            
-            return null;
         } catch (Exception e) {
-            System.err.println("Erro ao chamar Lambda de relatório: " + e.getMessage());
+            System.err.println("❌ Erro ao chamar Lambda CheckReportStatus: " + e.getMessage());
             return null;
         }
     }
