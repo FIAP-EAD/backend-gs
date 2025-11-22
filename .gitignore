@@ -118,6 +118,9 @@ fabric.properties
 # Compiled class file
 *.class
 
+# Maven
+target/
+
 # Log file
 *.log
 
