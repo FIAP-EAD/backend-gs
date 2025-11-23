@@ -135,14 +135,17 @@ COMMIT;
 -- ============================================
 -- VERIFICAÇÃO
 -- ============================================
--- Execute esta query para verificar a estrutura da tabela:
+-- Execute estas queries para verificar:
+
+-- Ver estrutura da tabela:
 -- SELECT column_name, data_type, nullable FROM user_tab_columns WHERE table_name = 'JOB_REPORT';
 
--- Execute esta query para verificar as constraints:
+-- Ver constraints:
 -- SELECT constraint_name, constraint_type FROM user_constraints WHERE table_name = 'JOB_REPORT';
 
-DBMS_OUTPUT.PUT_LINE('');
-DBMS_OUTPUT.PUT_LINE('========================================');
-DBMS_OUTPUT.PUT_LINE('✅ Migração concluída com sucesso!');
-DBMS_OUTPUT.PUT_LINE('========================================');
+-- ============================================
+-- PRÓXIMO PASSO
+-- ============================================
+-- Se você teve erro ao tornar ID_USER NOT NULL (porque há registros NULL),
+-- execute o script: fix_user_relationship.sql
 

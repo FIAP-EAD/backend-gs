@@ -58,8 +58,9 @@ public class JobReportService {
         this.objectMapper = new ObjectMapper();
     }
 
-    public JobReportResponse createJobReport(JobReportRequest request) throws Exception {
+    public JobReportResponse createJobReport(JobReportRequest request, Long userId) throws Exception {
         JobReport jobReport = new JobReport();
+        jobReport.setIdUser(userId);
         jobReport.setCompany(request.getCompany());
         jobReport.setTitle(request.getTitle());
         jobReport.setDescription(request.getDescription());

@@ -16,14 +16,15 @@ public class JobReportDao {
     private OracleConnection oracleConnection;
 
     public JobReport save(JobReport jobReport) throws SQLException {
-        String sql = "INSERT INTO JOB_REPORT (COMPANY, TITLE, DESCRIPTION) VALUES (?, ?, ?)";
+        String sql = "INSERT INTO JOB_REPORT (ID_USER, COMPANY, TITLE, DESCRIPTION) VALUES (?, ?, ?, ?)";
 
         try (Connection conn = oracleConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
-            stmt.setString(1, jobReport.getCompany());
-            stmt.setString(2, jobReport.getTitle());
-            stmt.setString(3, jobReport.getDescription());
+            stmt.setLong(1, jobReport.getIdUser());
+            stmt.setString(2, jobReport.getCompany());
+            stmt.setString(3, jobReport.getTitle());
+            stmt.setString(4, jobReport.getDescription());
 
             stmt.executeUpdate();
 
@@ -44,7 +45,7 @@ public class JobReportDao {
     }
 
     public JobReport findById(long id) throws SQLException {
-        String sql = "SELECT ID_JOB_REPORT, COMPANY, TITLE, DESCRIPTION, SESSION_ID FROM JOB_REPORT WHERE ID_JOB_REPORT = ?";
+        String sql = "SELECT ID_JOB_REPORT, ID_USER, COMPANY, TITLE, DESCRIPTION, SESSION_ID FROM JOB_REPORT WHERE ID_JOB_REPORT = ?";
 
         try (Connection conn = oracleConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -55,6 +56,7 @@ public class JobReportDao {
                 if (rs.next()) {
                     JobReport job = new JobReport();
                     job.setIdJobReport(rs.getLong("ID_JOB_REPORT"));
+                    job.setIdUser(rs.getLong("ID_USER"));
                     job.setCompany(rs.getString("COMPANY"));
                     job.setTitle(rs.getString("TITLE"));
                     job.setDescription(rs.getString("DESCRIPTION"));
@@ -75,7 +77,7 @@ public class JobReportDao {
     }
 
     public List<JobReport> findAll() throws SQLException {
-        String sql = "SELECT ID_JOB_REPORT, COMPANY, TITLE, DESCRIPTION FROM JOB_REPORT";
+        String sql = "SELECT ID_JOB_REPORT, ID_USER, COMPANY, TITLE, DESCRIPTION, SESSION_ID FROM JOB_REPORT";
 
         List<JobReport> list = new ArrayList<>();
 
@@ -86,6 +88,7 @@ public class JobReportDao {
             while (rs.next()) {
                 JobReport job = new JobReport();
                 job.setIdJobReport(rs.getLong("ID_JOB_REPORT"));
+                job.setIdUser(rs.getLong("ID_USER"));
                 job.setCompany(rs.getString("COMPANY"));
                 job.setTitle(rs.getString("TITLE"));
                 job.setDescription(rs.getString("DESCRIPTION"));

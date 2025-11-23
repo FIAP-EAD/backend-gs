@@ -3,6 +3,7 @@ package com.backend.gs.model;
 public class JobReport {
 
     private long idJobReport;
+    private Long idUser;
     private String company;
     private String title;
     private String description;
@@ -15,6 +16,14 @@ public class JobReport {
 
     public void setIdJobReport(long idJobReport) {
         this.idJobReport = idJobReport;
+    }
+
+    public Long getIdUser() {
+        return idUser;
+    }
+
+    public void setIdUser(Long idUser) {
+        this.idUser = idUser;
     }
 
     public String getCompany() {

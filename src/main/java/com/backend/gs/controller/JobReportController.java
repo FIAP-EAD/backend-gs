@@ -11,6 +11,8 @@ import com.backend.gs.dto.PresignedUploadUrlRequest;
 import com.backend.gs.dto.PresignedUploadUrlResponse;
 import com.backend.gs.dto.ReportReadyCallback;
 import com.backend.gs.service.JobReportService;
+import com.backend.gs.service.JwtService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -26,15 +28,30 @@ import java.util.Map;
 public class JobReportController {
 
     private final JobReportService service;
+    private final JwtService jwtService;
 
-    public JobReportController(JobReportService service) {
+    public JobReportController(JobReportService service, JwtService jwtService) {
         this.service = service;
+        this.jwtService = jwtService;
     }
 
     @PostMapping("/create")
-    public ResponseEntity<?> create(@RequestBody @Valid JobReportRequest request) {
+    public ResponseEntity<?> create(@RequestBody @Valid JobReportRequest request, HttpServletRequest httpRequest) {
         try {
-            JobReportResponse response = service.createJobReport(request);
+            // Extrai o token JWT do header Authorization
+            String authHeader = httpRequest.getHeader("Authorization");
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                return ResponseEntity.status(401).body("Authorization token is required");
+            }
+
+            String token = authHeader.substring(7);
+            Long userId = jwtService.extractUserId(token);
+            
+            if (userId == null) {
+                return ResponseEntity.status(401).body("Invalid or expired token");
+            }
+
+            JobReportResponse response = service.createJobReport(request, userId);
             return ResponseEntity.status(201).body(response);
         } catch (Exception e) {
             e.printStackTrace();
